@@ -1,0 +1,93 @@
+version: '3'
+services:
+  ecommerce-ui:
+    image: fitransyah/ecommerce-ui:latest
+    container_name: ecommerce-ui
+    ports:
+      - 4000:4000
+    environment:
+      - REACT_APP_PROFILE_API_HOST=http://profile-management
+      - REACT_APP_PRODUCT_API_HOST=http://product-catalog
+      - REACT_APP_INVENTORY_API_HOST=http://product-inventory
+      - REACT_APP_ORDER_API_HOST=http://order-management
+      - REACT_APP_SHIPPING_API_HOST=http://shipping-and-handling
+      - REACT_APP_CONTACT_API_HOST=http://contact-support-team
+    depends_on:
+      - profile-management
+      - product-catalog
+      - product-inventory
+      - order-management
+      - shipping-and-handling
+      - contact-support-team
+
+  profile-management:
+    image: fitransyah/profile-management:1.0.0
+    container_name: profile-management
+    ports:
+      - 3003:3003
+
+  contact-support-team:
+    image: fitransyah/contact-support-team:1.0.0
+    container_name: contact-support-team
+    ports:
+      - 8000:8000
+
+  order-management:
+    image: fitransyah/order-management:1.0.0
+    container_name: order-management
+    ports:
+    - 9090:9090
+    environment:
+    - PRODUCT_INVENTORY_API_HOST=http://product-inventory
+    - PRODUCT_CATALOG_API_HOST=http://product-catalog
+    - SHIPPING_HANDLING_API_HOST=http://shipping-and-handling
+    depends_on:
+      - product-inventory
+      - product-catalog
+      - shipping-and-handling
+
+  product-catalog:
+    image: fitransyah/product-catalog:1.0.0
+    container_name: product-catalog
+    ports:
+      - 3001:3001
+
+  product-inventory:
+    image: fitransyah/product-inventory:1.0.0
+    container_name: product-inventory
+    ports:
+      - 3002:3002
+
+  shipping-and-handling:
+    image: fitransyah/shipping-and-handling:1.0.0
+    container_name: shipping-and-handling
+    ports:
+      - 8080:8080
+
+    
+
+# docker run --network=my-network -p 4000:4000 \\
+# -e REACT_APP_PROFILE_API_HOST=http://profile-management \\
+# -e REACT_APP_PRODUCT_API_HOST=http://product-catalog \\
+# -e REACT_APP_INVENTORY_API_HOST=http://product-inventory \\
+# -e REACT_APP_ORDER_API_HOST=http://order-management \\
+# -e REACT_APP_SHIPPING_API_HOST=http://shipping-and-handling \\
+# -e REACT_APP_CONTACT_API_HOST=http://contact-support-team \\
+# --name ecommerce-ui fitransyah/ecommerce-ui
+
+# docker run -p 3003:3003 fitransyah/profile-management
+
+# docker run -p 8000:8000 fitransyah/contact-support-team
+
+# docker run --network my-network \
+# -e PRODUCT_INVENTORY_API_HOST=http://product-inventory \
+# -e PRODUCT_CATALOG_API_HOST=http://product-catalog \
+# -e SHIPPING_HANDLING_API_HOST=http://shipping-and-handling \
+# -p 9090:9090 --name order-management fitransyah/order-management
+
+# docker run -p 3001:3001 fitransyah/product-catalog
+
+# docker run -p 3002:3002 fitransyah/product-inventory
+
+# docker run -p 8080:8080 fitransyah/shipping-and-handling
+
