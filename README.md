@@ -170,3 +170,16 @@ docker network rm ecommerce-network
 - Check Docker network connectivity if services can't communicate
 - Verify environment variables are set correctly
 - Use `docker logs <container-name>` to debug individual services
+
+## Enhanced Version with Database
+
+For a more advanced implementation with persistent data storage, check out the **V2 Enhanced Version** of this project that includes database integration:
+
+🔗 **[Docker Ecommerce Microservices with Database](https://github.com/rian-tester/docker-ecommerce-microservice-db)**
+
+### V2 Features:
+- **Database Integration**: PostgreSQL, MongoDB, and Redis for data persistence
+- **Data Consistency**: ACID transactions and data integrity
+- **Enhanced APIs**: Full CRUD operations with persistent storage
+- **Production Ready**: Database clustering and backup strategies
+- **Performance Optimization**: Caching layers and connection pooling
