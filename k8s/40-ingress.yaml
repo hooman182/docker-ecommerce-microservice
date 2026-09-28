@@ -1,0 +1,27 @@
+# Ingress - single external entry point (guide §4.1: ELB -> Ingress -> Frontend)
+# Works with the standard nginx-ingress controller on CCE; annotate per your cloud LB.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: ecommerce
+  annotations:
+    # TODO: adjust for your CCE ingress controller / ELB integration
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - shop.example.com              # TODO: your public domain
+      secretName: ecommerce-tls         # TODO: TLS cert secret (guide §11.2 Step 2)
+  rules:
+    - host: shop.example.com            # TODO: your public domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ecommerce-ui
+                port:
+                  number: 4000

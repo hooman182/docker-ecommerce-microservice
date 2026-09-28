@@ -1,0 +1,223 @@
+# Product Catalog - Deployment + Service
+# Reads products from MySQL; optional Redis read-through cache.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-catalog
+  namespace: ecommerce
+  labels: { app: product-catalog, tier: backend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: product-catalog }
+  template:
+    metadata:
+      labels: { app: product-catalog, tier: backend }
+    spec:
+      containers:
+        - name: product-catalog
+          image: swr.example.com/ecommerce/product-catalog:1.0.0   # TODO: your SWR path
+          ports: [{ containerPort: 3001 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+            - secretRef: { name: ecommerce-secrets }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 3001 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 3001 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-catalog
+  namespace: ecommerce
+spec:
+  selector: { app: product-catalog }
+  ports:
+    - port: 3001
+      targetPort: 3001
+---
+# Product Inventory - Deployment + Service (Python/Flask, port 3002)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-inventory
+  namespace: ecommerce
+  labels: { app: product-inventory, tier: backend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: product-inventory }
+  template:
+    metadata:
+      labels: { app: product-inventory, tier: backend }
+    spec:
+      containers:
+        - name: product-inventory
+          image: swr.example.com/ecommerce/product-inventory:1.0.0  # TODO: your SWR path
+          ports: [{ containerPort: 3002 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+            - secretRef: { name: ecommerce-secrets }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 3002 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 3002 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-inventory
+  namespace: ecommerce
+spec:
+  selector: { app: product-inventory }
+  ports:
+    - port: 3002
+      targetPort: 3002
+---
+# Profile Management - Deployment + Service (Node/Express, port 3003, JWT auth)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profile-management
+  namespace: ecommerce
+  labels: { app: profile-management, tier: backend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: profile-management }
+  template:
+    metadata:
+      labels: { app: profile-management, tier: backend }
+    spec:
+      containers:
+        - name: profile-management
+          image: swr.example.com/ecommerce/profile-management:1.0.0  # TODO: your SWR path
+          ports: [{ containerPort: 3003 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+            - secretRef: { name: ecommerce-secrets }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 3003 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 3003 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile-management
+  namespace: ecommerce
+spec:
+  selector: { app: profile-management }
+  ports:
+    - port: 3003
+      targetPort: 3003
+---
+# Shipping and Handling - Deployment + Service (Go, port 8080)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-and-handling
+  namespace: ecommerce
+  labels: { app: shipping-and-handling, tier: backend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: shipping-and-handling }
+  template:
+    metadata:
+      labels: { app: shipping-and-handling, tier: backend }
+    spec:
+      containers:
+        - name: shipping-and-handling
+          image: swr.example.com/ecommerce/shipping-and-handling:1.0.0  # TODO: your SWR path
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 300m, memory: 128Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-and-handling
+  namespace: ecommerce
+spec:
+  selector: { app: shipping-and-handling }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+# Contact Support Team - Deployment + Service (Flask, port 8000)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact-support-team
+  namespace: ecommerce
+  labels: { app: contact-support-team, tier: backend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: contact-support-team }
+  template:
+    metadata:
+      labels: { app: contact-support-team, tier: backend }
+    spec:
+      containers:
+        - name: contact-support-team
+          image: swr.example.com/ecommerce/contact-support-team:1.0.0  # TODO: your SWR path
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 300m, memory: 128Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contact-support-team
+  namespace: ecommerce
+spec:
+  selector: { app: contact-support-team }
+  ports:
+    - port: 8000
+      targetPort: 8000

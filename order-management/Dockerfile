@@ -5,12 +5,18 @@ FROM maven:3.6.3-openjdk-17-slim
 WORKDIR /app/
 
 # Copy the project files
-COPY . .
+COPY settings.xml /root/.m2/settings.xml
+COPY pom.xml .
 
-RUN mvn install
+# Download dependencies first (cached layer; fast mirror via settings.xml)
+RUN mvn -B -q -DskipTests dependency:go-offline || true
+
+COPY src ./src
+
+RUN mvn -B -q -DskipTests package && mv target/*.jar app.jar && echo built > .buildok
 
 # Expose the port that the application listens on
 EXPOSE 9090
 
-# Define the command to run when the container starts.
-CMD ["mvn", "spring-boot:run"]
+# Run the packaged jar directly (no Maven at runtime)
+CMD ["java", "-jar", "app.jar"]

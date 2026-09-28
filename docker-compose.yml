@@ -1,5 +1,40 @@
 version: '3'
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: ecommerce-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_secret
+      - MYSQL_DATABASE=ecommerce
+      - MYSQL_USER=ecommerce_user
+      - MYSQL_PASSWORD=ecommerce_pass
+    ports:
+      - 3306:3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_secret"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   ecommerce-ui:
     image: fitransyah/ecommerce-ui:latest
     container_name: ecommerce-ui
@@ -21,10 +56,21 @@ services:
       - contact-support-team
 
   profile-management:
-    image: fitransyah/profile-management:1.0.0
+    build: ./profile-management
+    image: profile-management:local
     container_name: profile-management
     ports:
       - 3003:3003
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ecommerce_user
+      - DB_PASSWORD=ecommerce_pass
+      - DB_NAME=ecommerce
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   contact-support-team:
     image: fitransyah/contact-support-team:1.0.0
@@ -33,7 +79,8 @@ services:
       - 8000:8000
 
   order-management:
-    image: fitransyah/order-management:1.0.0
+    build: ./order-management
+    image: order-management:local
     container_name: order-management
     ports:
     - 9090:9090
@@ -41,28 +88,69 @@ services:
     - PRODUCT_INVENTORY_API_HOST=http://product-inventory
     - PRODUCT_CATALOG_API_HOST=http://product-catalog
     - SHIPPING_HANDLING_API_HOST=http://shipping-and-handling
+    - DB_HOST=mysql
+    - DB_PORT=3306
+    - DB_USER=ecommerce_user
+    - DB_PASSWORD=ecommerce_pass
+    - DB_NAME=ecommerce
     depends_on:
-      - product-inventory
-      - product-catalog
-      - shipping-and-handling
+      mysql:
+        condition: service_healthy
+      product-inventory:
+        condition: service_started
+      product-catalog:
+        condition: service_started
+      shipping-and-handling:
+        condition: service_started
 
   product-catalog:
-    image: fitransyah/product-catalog:1.0.0
+    build: ./product-catalog
+    image: product-catalog:local
     container_name: product-catalog
     ports:
       - 3001:3001
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ecommerce_user
+      - DB_PASSWORD=ecommerce_pass
+      - DB_NAME=ecommerce
+      - REDIS_URL=redis://redis:6379
+      - REDIS_TTL_SECONDS=300
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   product-inventory:
-    image: fitransyah/product-inventory:1.0.0
+    build: ./product-inventory
+    image: product-inventory:local
     container_name: product-inventory
     ports:
       - 3002:3002
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ecommerce_user
+      - DB_PASSWORD=ecommerce_pass
+      - DB_NAME=ecommerce
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   shipping-and-handling:
     image: fitransyah/shipping-and-handling:1.0.0
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     container_name: shipping-and-handling
     ports:
       - 8080:8080
+
+volumes:
+  mysql-data:
+  redis-data:
 
     
 

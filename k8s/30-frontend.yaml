@@ -1,0 +1,43 @@
+# Ecommerce UI - Deployment + Service (React + Express gateway, port 4000)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-ui
+  namespace: ecommerce
+  labels: { app: ecommerce-ui, tier: frontend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: ecommerce-ui }
+  template:
+    metadata:
+      labels: { app: ecommerce-ui, tier: frontend }
+    spec:
+      containers:
+        - name: ecommerce-ui
+          image: swr.example.com/ecommerce/ecommerce-ui:1.0.0   # TODO: your SWR path
+          ports: [{ containerPort: 4000 }]
+          envFrom:
+            - configMapRef: { name: ecommerce-config }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-ui
+  namespace: ecommerce
+spec:
+  selector: { app: ecommerce-ui }
+  ports:
+    - port: 4000
+      targetPort: 4000

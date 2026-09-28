@@ -1,8 +1,20 @@
+import os
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+
+# CORS: allowlist via env (comma-separated origins); "*" keeps demo behavior
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
+CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGINS}})
+
+
+# Health check for K8s probes / ELB (guide 5.1, 5.2)
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'UP', 'service': 'contact-support-team'})
+
 
 @app.route('/api/contact-message', methods=['GET'])
 def get_contact_message():

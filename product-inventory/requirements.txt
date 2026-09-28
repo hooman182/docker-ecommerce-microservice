@@ -1,3 +1,6 @@
 Flask==2.0.1
 flask-cors==3.0.10
 Werkzeug==2.0.1
+Flask-SQLAlchemy==2.5.1
+PyMySQL==1.1.0
+Cryptography==42.0.5

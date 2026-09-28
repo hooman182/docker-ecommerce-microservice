@@ -4,14 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 	"net/http"
 )
 
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*") // should be specific domain in production
+		// Set CORS headers (allowlist via env; "*" keeps demo behavior)
+		origin := os.Getenv("CORS_ORIGINS")
+		if origin == "" {
+			origin = "*"
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
@@ -184,6 +189,12 @@ func handleAllShippingFees(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(feeDetails)
 }
 func main() {
+	// Health check for K8s probes / ELB (guide §5.1, §5.2)
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "UP", "service": "shipping-and-handling"})
+	})
+
 	http.HandleFunc("/shipping-fee", corsMiddleware(handleShippingFee))
 	http.HandleFunc("/shipping-explanation", corsMiddleware(handleShippingExplanation))
 	http.HandleFunc("/all-shipping-fees", corsMiddleware(handleAllShippingFees))

@@ -1,23 +1,23 @@
 package com.ltp.ordermanagement.service;
 
 import com.ltp.ordermanagement.CartItem;
+import com.ltp.ordermanagement.CartItemEntity;
 import com.ltp.ordermanagement.model.InventoryResponse;
 import com.ltp.ordermanagement.model.Product;
+import com.ltp.ordermanagement.repository.CartItemRepository;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Service
 public class OrderService {
 
     private final RestTemplate restTemplate;
-    private final Map<Long, List<CartItem>> userCarts = new HashMap<>();
+    private final CartItemRepository cartItemRepository;
 
     @Value("${PRODUCT_INVENTORY_API_HOST}")
     private String productInventoryApiHost;
@@ -29,8 +29,9 @@ public class OrderService {
     private String shippingHandlingApiHost;
 
     @Autowired
-    public OrderService(RestTemplate restTemplate) {
+    public OrderService(RestTemplate restTemplate, CartItemRepository cartItemRepository) {
         this.restTemplate = restTemplate;
+        this.cartItemRepository = cartItemRepository;
     }
 
     public String addToCart(Long userId, Product product) {
@@ -39,9 +40,8 @@ public class OrderService {
         if (cart.stream().anyMatch(item -> item.getProductId().equals(product.getId()))) {
             return "Product already exists in the cart";
         }
-    
-        // Check the inventory of the product
 
+        // Check the inventory of the product
         System.out.println(productInventoryApiHost + ":3002/api/inventory/" + product.getId());
         InventoryResponse inventoryResponse = restTemplate.getForObject(productInventoryApiHost + ":3002/api/inventory/" + product.getId(), InventoryResponse.class);
         if (inventoryResponse == null || inventoryResponse.getQuantity() <= 0) {
@@ -49,8 +49,10 @@ public class OrderService {
         }
         System.out.println(productCatalogApiHost + ":3001/api/products/" + product.getId());
         Product productDetails = restTemplate.getForObject(productCatalogApiHost + ":3001/api/products/" + product.getId(), Product.class);
-        // Add the product to the user's cart
-        CartItem cartItem = new CartItem(
+
+        // Add the product to the user's cart (persisted in MySQL)
+        CartItemEntity entity = new CartItemEntity(
+            userId,
             productDetails.getId(),
             1, // assuming quantity 1 for simplicity
             productDetails.getName(),
@@ -58,8 +60,12 @@ public class OrderService {
             productDetails.getPrice(),
             productDetails.getCategory()
         );
-        cart.add(cartItem);
-        saveUserCart(userId, cart);
+        try {
+            cartItemRepository.save(entity);
+        } catch (DataIntegrityViolationException dive) {
+            // Lost a race against a concurrent addToCart; treat as already in cart
+            return "Product already exists in the cart";
+        }
         printCartItems(userId);
 
         return "Product added to the cart";
@@ -77,12 +83,10 @@ public class OrderService {
 
     public double getCartShippingTotal(Long userId) {
         List<CartItem> cart = getUserCart(userId);
-        System.out.println(userId);
         double sum = cart.stream()
                 .mapToDouble(item -> {
                     // Assuming the endpoint URL is correct and returns data as expected
                     Product product = restTemplate.getForObject(shippingHandlingApiHost + ":8080/shipping-fee?product_id=" + item.getProductId(), Product.class);
-                    System.out.println(product);
                     if (product != null) {
                         return product.getShippingFee();
                     } else {
@@ -91,11 +95,9 @@ public class OrderService {
                     }
                 })
                 .sum();
-
-        System.out.println(sum);
         return sum;
     }
-    
+
     public double getCartTotal(Long userId) {
         double subtotal = getCartSubtotal(userId);
         double shippingTotal = getCartShippingTotal(userId);
@@ -107,17 +109,16 @@ public class OrderService {
         System.out.println("Items in user " + userId + "'s cart:");
         for (CartItem item : cart) {
             Product product = restTemplate.getForObject(
-                productCatalogApiHost + ":3001/api/products/" + item.getProductId(), 
+                productCatalogApiHost + ":3001/api/products/" + item.getProductId(),
                 Product.class
             );
-            System.out.println("Product ID: " + item.getProductId() + 
+            System.out.println("Product ID: " + item.getProductId() +
                                ", Quantity: " + item.getQuantity() +
-                               ", Name: " + product.getName() + 
+                               ", Name: " + product.getName() +
                                ", Price: " + product.getPrice());
         }
-    
     }
-    
+
     public String purchaseCart(Long userId) {
         List<CartItem> cart = getUserCart(userId);
 
@@ -126,19 +127,22 @@ public class OrderService {
             restTemplate.postForObject(productInventoryApiHost + ":3002/api/order/" + item.getProductId(), item.getQuantity(), Void.class);
         }
 
-        // Clear the user's cart after purchase
-        saveUserCart(userId, new ArrayList<>());
+        // Clear the user's cart after purchase (rows removed from MySQL)
+        cartItemRepository.deleteByUserId(userId);
 
         return "Purchase completed";
     }
 
-    // Helper method to get the user's cart from the in-memory cache
+    // Load the user's cart from MySQL and map entities to the API DTO
     public List<CartItem> getUserCart(Long userId) {
-        return userCarts.getOrDefault(userId, new ArrayList<>());
-    }
-
-    // Helper method to save the user's cart to the in-memory cache
-    private void saveUserCart(Long userId, List<CartItem> cart) {
-        userCarts.put(userId, cart);
+        return cartItemRepository.findByUserIdOrderByIdAsc(userId).stream()
+                .map(e -> new CartItem(
+                        e.getProductId(),
+                        e.getQuantity(),
+                        e.getName(),
+                        e.getDescription(),
+                        e.getPrice(),
+                        e.getCategory()))
+                .collect(Collectors.toList());
     }
 }

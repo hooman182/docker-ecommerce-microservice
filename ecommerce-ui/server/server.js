@@ -6,7 +6,24 @@ import { fileURLToPath } from 'url';
 
 const app = express();
 app.use(bodyParser.json());
-app.use(cors());
+// CORS: allowlist via env (comma-separated origins); "*" keeps demo behavior
+const allowedOrigins = (process.env.CORS_ORIGINS || '*')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('Origin not allowed by CORS')); 
+    },
+  })
+);
+
+// Health check for K8s probes / ELB (guide §5.1, §5.2)
+app.get('/health', (req, res) => {
+  res.json({ status: 'UP', service: 'ecommerce-ui' });
+});
 
 // Get the directory name of the current module
 const __filename = fileURLToPath(import.meta.url);
